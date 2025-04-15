@@ -50,6 +50,10 @@ entry:
     mov $0x0003, %ax
 	int $0x10
 
+    mov $0x01,   %ah
+    mov $0x2000, %cx
+    int $0x10
+
     lea  (random_state), %bx
     movw $0x432F,        (%bx)
 
@@ -84,7 +88,7 @@ clear:
             movw $(0x2403), (%ebx)
             jmp .fruit_end
         .no_fruit:
-            movw $(0x20FC), (%ebx)
+            movw $(0x2AB0), (%ebx)
         .fruit_end:
 
         add $2, %ebx
@@ -94,7 +98,7 @@ clear:
     ret
 
 print_snake:
-    mov $0x2602, %dx
+    mov $0x2002, %dx
 
     mov (snake_len), %cx
     lea (snake),     %bp
@@ -130,6 +134,14 @@ print_snake:
             mov $8, %dl
         .skip_body:
 
+        cmp $0x20, %dh
+        je  .switch_e
+            mov $0x20, %dh
+        jmp .switch_exit
+        .switch_e:
+            mov $0x26, %dh
+        .switch_exit:
+
         loop .print_loop
 
     ret
@@ -156,21 +168,24 @@ move_snake:
     dec %cx
     mov %cx,          %ax
     shl $2,           %ax
-    mov $(snake),     %bx
-    add %ax,          %bx
-    .move_loop:
-        pusha
-        mov $4, %cx
-        popa
+    mov $(snake),     %di
+    add %ax,          %di
+    mov %di,          %si
+    sub $4,           %si
 
-        movw -4(%bx), %ax
-        movw %ax,     (%bx)
-        movw -2(%bx), %ax
-        movw %ax,     2(%bx)
+    std
+    rep movsd
+    cld
 
-        sub  $4, %bx
+    #.move_loop:
+    #    movw -4(%bx), %ax
+    #    movw %ax,     (%bx)
+    #    movw -2(%bx), %ax
+    #    movw %ax,     2(%bx)
 
-        loop .move_loop
+    #    sub  $4, %bx
+
+    #    loop .move_loop
     
     lea (snake_dir), %bx
 
