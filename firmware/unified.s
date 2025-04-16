@@ -26,12 +26,22 @@ init_src:
     .byte RIGHT
     .word 3
 
-    .word 1
-    .word 1
-    .word 1
-    .word 2
-    .word 1
-    .word 3
+    .byte 1
+    .byte 1
+    .byte 1
+    .byte 2
+    .byte 1
+    .byte 3
+
+body_lut:
+    .byte '1'
+    .byte '2'
+    .byte '3'
+    .byte '4'
+    .byte '5'
+    .byte '6'
+    .byte '7'
+    .byte '8'
 
 .section .entry, "a"
 
@@ -60,7 +70,7 @@ entry:
 restart:
     mov $init_src, %si
     mov $init_dst, %di
-    mov $18,        %cx
+    mov $11,       %cx
     rep movsb
 
     .loop:
@@ -78,11 +88,11 @@ restart:
 .section .text
 clear:
     mov $console_buffer, %ebx
-    mov $(80 * 24), %cx
+    mov $(80 * 24),      %cx
+    mov  %cx,            %ax
+    subw (fruit_index),  %ax
 
     .clear_loop:
-        mov  $(80 * 24),    %ax
-        subw (fruit_index), %ax
         cmp %cx, %ax
         jne .no_fruit
             movw $(0x2403), (%ebx)
@@ -91,7 +101,7 @@ clear:
             movw $(0x2AB0), (%ebx)
         .fruit_end:
 
-        add $2, %ebx
+        add $2, %bx
 
         loop .clear_loop
 
@@ -104,10 +114,10 @@ print_snake:
     lea (snake),     %bp
 
     .print_loop:
-        xor  %esi,   %esi
-        mov  2(%bp),  %si
-        imul $80,    %si
-        add  (%bp), %si
+        movzx 1(%bp), %ax
+        imul  $80,    %ax
+        movzx (%bp),  %si
+        add   %ax,    %si
 
         cmp  %si, (fruit_index)
         jne .no_hit
@@ -123,10 +133,14 @@ print_snake:
 
         shl $1, %si
 
-        add $4, %bp
+        mov 0(%bp), %ax # x
+        mov 1(%bp), %di # y
+
 
         mov $console_buffer, %ebx
         mov %dx, (%ebx, %esi)
+
+        add $2, %bp
 
         mov $6, %dl
         cmp $2, %cx
@@ -149,43 +163,35 @@ print_snake:
 move_snake:
     mov  (snake_len), %cx
     dec  %cx
-    mov  $(snake),    %bx
-    movw (%bx),       %ax
-    movw 2(%bx),      %dx
+    push %cx
+    mov $snake,       %di
+    movw (%di),       %ax
+    movw 1(%di),      %dx
     .check_loop:
-        add $4, %bx
+        inc %bx
+        inc %bx
         
         cmp (%bx),    %ax
         jne .check_bad
-            cmp 2(%bx), %dx
+            cmp 1(%bx), %dx
             jne .check_bad
                 jmp game_end
         .check_bad:
 
         loop .check_loop
 
-    mov (snake_len),  %cx
-    dec %cx
-    mov %cx,          %ax
-    shl $2,           %ax
-    mov $(snake),     %di
-    add %ax,          %di
+
+    pop %cx
+    mov %cx,          %bx
+    shl $1,           %bx
+    lea (%bx, %di),        %di
     mov %di,          %si
-    sub $4,           %si
+    dec %si
+    dec %si
 
     std
-    rep movsd
+    rep movsw
     cld
-
-    #.move_loop:
-    #    movw -4(%bx), %ax
-    #    movw %ax,     (%bx)
-    #    movw -2(%bx), %ax
-    #    movw %ax,     2(%bx)
-
-    #    sub  $4, %bx
-
-    #    loop .move_loop
     
     lea (snake_dir), %bx
 
@@ -210,54 +216,50 @@ move_snake:
             movb $LEFT, (%bx)
             jmp .no_input
         .skip_key_left:
-        cmp $0x4D, %ah
-        jne .skip_key_right
             movb $RIGHT, (%bx)
-            jmp .no_input
-        .skip_key_right:
     .no_input:
 
-    lea (snake),     %bp
+    mov $snake,     %bp
 
     cmpb $UP, (%bx)
     jne .skip_up
-        cmpw $0, 2(%bp)
+        cmpb $0, 1(%bp)
         jne  .no_up_flip
-            movw $24, 2(%bp)
+            movb $24, 1(%bp)
         .no_up_flip:
 
-        subw $1, 2(%bp)
+        subb $1, 1(%bp)
     
         jmp .skip_all
     .skip_up:
     cmpb $DOWN, (%bx)
     jne .skip_down
-        cmpw $23, 2(%bp)
+        cmpb $23, 1(%bp)
         jne  .no_down_flip
-            movw $-1, 2(%bp)
+            movb $-1, 1(%bp)
         .no_down_flip:
 
-        addw $1, 2(%bp)
+        addb $1, 1(%bp)
 
         jmp .skip_all
     .skip_down:
     cmpb $LEFT, (%bx)
     jne .skip_left
-        cmpw $0, (%bp)
+        cmpb $0, (%bp)
         jne  .no_left_flip
-            movw $80, (%bp)
+            movb $80, (%bp)
         .no_left_flip:
 
-        subw $1, (%bp)
+        subb $1, (%bp)
 
         jmp .skip_all
     .skip_left:
-        cmpw $79, (%bp)
+        cmpb $79, (%bp)
         jne  .no_right_flip
-            movw $-1, (%bp)
+            movb $-1, (%bp)
         .no_right_flip:
 
-        addw $1, (%bp)
+        addb $1, (%bp)
         
     .skip_all:
 
